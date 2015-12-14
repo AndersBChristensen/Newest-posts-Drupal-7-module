@@ -1,0 +1,7 @@
+name = Newest Posts
+description = A block module that display the newest posts.
+package = Custom module
+core = 7.x
+
+
+

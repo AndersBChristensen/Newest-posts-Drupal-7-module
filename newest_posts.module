@@ -1,0 +1,93 @@
+<?php
+/**
+ * Her implementerer vi hook_help() som viser Help - og modulinformationer
+ * 
+ * path - hvilken sti vi bruger til at vise Help
+ * arg - array som indeholder stien som returneres fra arg() funktionen
+ *   
+ */
+
+function newest_posts_help($path, $arg) {
+  switch ($path) {
+    case "admin/help#newest_posts":
+      return '<p>' . t("Displays links to nodes created on this date") . '</p>';
+      break;
+  }
+} 
+
+/**
+ * Her implementeres hook_block_info().
+ */
+function newest_posts_block_info() {
+  $blocks['newest_posts'] = array(
+    // Det navn som vil vises i bloklisten
+    'info' => t('Nyeste artikler'),
+    // Dette er en default indstilling
+    'cache' => DRUPAL_CACHE_PER_ROLE,
+  );
+  return $blocks;
+}
+
+/**
+ * Vores "custom" funktion
+ * Denne funktion sætter start- og slutdatoer
+ * 
+ * Henter indhold fra databasen, som er gemt i den periode og returnerer dem
+ * 
+ */
+
+function newest_posts_contents(){
+  //Her får vi dags dato.
+  $today = getdate();
+  //Her beregnes datoen for en uge siden
+  $start_time = mktime(0, 0, 0,$today['mon'],($today['mday'] - 7), $today['year']);
+  //Her får vi alle artikler udgivet fra sidste uge og til i dag.
+  $end_time = time();
+
+  //Her bruger vi database API til at hente alle nyeste artikler
+  $query = db_select('node', 'n')
+    ->fields('n', array('nid', 'title', 'created'))
+    ->condition('status', 1) 
+    ->condition('created', array($start_time, $end_time), 'BETWEEN')
+    ->orderBy('created', 'DESC') //Artiklerne listes med nyeste først.
+    ->execute(); 
+  return $query;  
+}
+
+/**
+ * Her implementeres hook_block_view() og indholdet sættes op.
+ * 
+ * 
+ */
+function newest_posts_block_view($delta = '') {
+  switch ($delta) {
+    case 'newest_posts':
+      $block['subject'] = t('Nyeste artikler');
+      if (user_access('access content')) {
+        // Her bruger vi vores custom funktion til at hente data
+        $result = newest_posts_contents();
+        // Et array til at indeholde de "items" som skal vises i blokken
+        $items = array();
+        // Her looper foreachen over resultatet og formatere det som links
+        foreach ($result as $node) {
+          $items[] = array(
+            'data' => l($node->title, 'node/' . $node->nid),
+          ); 
+        }
+        // Hvis der ikke er noget indhold fra den sidste uge
+        if (empty($items)) {
+          $block['content'] = t('No posts available.');  
+        } 
+        else {
+          // Her køres daten igennem theme-funktionen
+          $block['content'] = theme('item_list', array(
+            'items' => $items));
+        }
+      }
+    return $block;
+  }
+  
+}
+
+
+?>
